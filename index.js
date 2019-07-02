@@ -14,39 +14,45 @@ app.use(express.urlencoded({ extended: true })) // for parsing application/x-www
 app.post('/servicio-electrico', async (req, res) => {
     const url = 'https://www.enel.cl/es/clientes/servicios-en-linea/pago-de-cuenta.html'
 
-    if(req.body.cliente) {
-        const browser = await puppeteer.launch({ headless:true })
-        const page = await browser.newPage()
-        page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.169 Safari/537.36')
-
-        await page.goto(url)
-        await page.waitForSelector('input#client')
-
-        await page.click('input#client')
-        await page.keyboard.type(req.body.cliente)
-
-        await page.click('input[type=submit].generalFormContactButton')
-
-        await page.waitForSelector('section.paymentComponentGeneralFormContact[style=""]')
-
-        const numberAccount = await page.$eval('span#numberAccountSpan', el => el.innerText)
-        const address = await page.$eval('span#addressSpan', el => el.innerText)
-        const dueDate = await page.$eval('span#dueDateSpan', el => el.innerText)
-        const lastPaymentDate = await page.$eval('span#lastPaymentDateSpan', el => el.innerText)
-        const cutAfterValue = await page.$eval('span#cutAfterValueSpan', el => el.innerText)
-        const lastPaymentAmountValue = await page.$eval('span#lastPaymentAmountValueSpan', el => el.innerText)
-        const stateSuplyValue = await page.$eval('span#stateSuplyValueSpan', el => el.innerText)
-        
-        browser.close()
-
+    try {
+        if(req.body.cliente) {
+            const browser = await puppeteer.launch({ headless:true })
+            const page = await browser.newPage()
+            page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.169 Safari/537.36')
+    
+            await page.goto(url)
+            await page.waitForSelector('input#client')
+    
+            await page.click('input#client')
+            await page.keyboard.type(req.body.cliente)
+    
+            await page.click('input[type=submit].generalFormContactButton')
+    
+            await page.waitForSelector('section.paymentComponentGeneralFormContact[style=""]')
+    
+            const numberAccount = await page.$eval('span#numberAccountSpan', el => el.innerText)
+            const address = await page.$eval('span#addressSpan', el => el.innerText)
+            const dueDate = await page.$eval('span#dueDateSpan', el => el.innerText)
+            const lastPaymentDate = await page.$eval('span#lastPaymentDateSpan', el => el.innerText)
+            const cutAfterValue = await page.$eval('span#cutAfterValueSpan', el => el.innerText)
+            const lastPaymentAmountValue = await page.$eval('span#lastPaymentAmountValueSpan', el => el.innerText)
+            const stateSuplyValue = await page.$eval('span#stateSuplyValueSpan', el => el.innerText)
+            
+            browser.close()
+    
+            return res.json({
+                numero_cuenta: numberAccount,
+                direccion: address,
+                fecha_vencimiento: dueDate,
+                fecha_ultimo_pago: lastPaymentDate,
+                fecha_corte: cutAfterValue,
+                monto_ultimo_pago: lastPaymentAmountValue,
+                estado_suministro: stateSuplyValue
+            })
+        }
+    } catch (error) {
         return res.json({
-            numero_cuenta: numberAccount,
-            direccion: address,
-            fecha_vencimiento: dueDate,
-            fecha_ultimo_pago: lastPaymentDate,
-            fecha_corte: cutAfterValue,
-            monto_ultimo_pago: lastPaymentAmountValue,
-            estado_suministro: stateSuplyValue
+            error
         })
     }
 
@@ -71,6 +77,8 @@ app.post('/servicio-agua', async(req, res) => {
             page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.169 Safari/537.36')
     
             await page.goto(url)
+            await page.waitForSelector('input[type=radio]#busqueda_n_cuenta')
+
             await page.click('input[type=radio]#busqueda_n_cuenta')
             await page.click('input[type=text]#buscador_cuenta')
             await page.keyboard.type(clientWOValidatorNumber)
@@ -83,7 +91,7 @@ app.post('/servicio-agua', async(req, res) => {
     
             await page.waitForSelector('table.sin_bordes')
             
-            const numero_cuenta = await page.$eval('table.sin_bordes:first-child > tbody > tr > td', (el) => el.innerText )
+            const numero_cuenta = await page.$eval('table.sin_bordes:first-child > tbody > tr > td:nth-child(2)', (el) => el.innerText )
             const address = await page.$eval('table.sin_bordes:first-child > tbody > tr:nth-child(2) > td:nth-child(2)', (el) => el.innerText )
             const titular = await page.$eval('table.sin_bordes:first-child > tbody > tr:nth-child(3) > td:nth-child(2)', (el) => el.innerText )
             const saldo_anterior = await page.$eval('div.fila > div.col-xs-12.col-md-6 table.sin_bordes  tr:nth-child(2) td:nth-child(2)', el => el.innerText )
@@ -103,6 +111,60 @@ app.post('/servicio-agua', async(req, res) => {
                 fecha_ultimo_pago,
                 monto_ultimo_pago,
                 monto_subsidio
+            })
+        }
+    } catch (error) {
+        return res.json({
+            error
+        })
+    }
+
+    return res.json({
+        error: 'Debes ingresar un numero de cliente.'
+    })
+})
+
+/**
+ * Consulta de cuenta de servicio de gas - MetroGas
+ */
+app.post('/servicio-gas', async(req, res) => {
+    const url = 'http://www.metrogas.cl/'
+
+    try {
+        if(req.body.cliente){
+            const browser = await puppeteer.launch({ headless:true })
+            const page = await browser.newPage()
+            page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.169 Safari/537.36')
+
+            await page.goto(url)
+            await page.waitForSelector('a#botonPago')
+
+            await page.click('li#pago > a.label')
+            await page.click('a[data-tab=payment2]')
+            await page.click('input#NumeroIC')
+            await page.keyboard.type(req.body.cliente)
+            await page.click('a#botonPago')
+            
+            await page.waitForSelector('a#btContinuar')
+            const numero_cuenta = await page.$eval('div.datos > div:nth-child(2)', (el) => el.innerText)
+            const direccion = await page.$eval('div.datos > div:nth-child(4)', (el) => el.innerText)
+            const comuna = await page.$eval('div.datos > div:nth-child(6)', (el) => el.innerText)
+            const ultimo_pago_string = await page.$eval('div.sub-container > h5', (el) => el.innerText)
+            const fecha_ultimo_pago = ultimo_pago_string.split(' - ')[1]
+            const saldo = await page.$eval('div.sub-container div.fila2 div.col-1', (el) => el.innerText)
+            const fecha_vencimiento = await page.$eval('div.sub-container div.fila2 div.col-2', (el) => el.innerText)
+            const monto = await page.$eval('div.sub-container div.fila2 div.col-3', (el) => el.innerText)
+            const total_a_pagar = await page.$eval('div.sub-container div.total-pago div.col-2', (el) => el.innerText)
+
+            return res.json({
+                numero_cuenta,
+                direccion,
+                comuna,
+                fecha_ultimo_pago,
+                saldo,
+                fecha_vencimiento,
+                monto,
+                total_a_pagar
             })
         }
     } catch (error) {
