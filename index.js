@@ -37,17 +37,23 @@ app.post('/servicio-electrico', async (req, res) => {
             const cutAfterValue = await page.$eval('span#cutAfterValueSpan', el => el.innerText)
             const lastPaymentAmountValue = await page.$eval('span#lastPaymentAmountValueSpan', el => el.innerText)
             const stateSuplyValue = await page.$eval('span#stateSuplyValueSpan', el => el.innerText)
+            const elements = await page.$$('input#invoice0')
+            let amountDue = null
+            if(elements.length > 0){
+                amountDue = await page.$eval('input#invoice0', el => el.hasAttribute('data-amount') ? el.getAttribute('data-amount') : 0 )
+            }
             
             browser.close()
     
             return res.json({
                 numero_cuenta: numberAccount,
                 direccion: address,
-                fecha_vencimiento: dueDate,
-                fecha_ultimo_pago: lastPaymentDate,
-                fecha_corte: cutAfterValue,
-                monto_ultimo_pago: lastPaymentAmountValue,
-                estado_suministro: stateSuplyValue
+                fecha_vencimiento: new Date(dueDate.split('/')[2], dueDate.split('/')[1], dueDate.split('/')[0]),
+                fecha_ultimo_pago: new Date(lastPaymentDate.split('/')[2], lastPaymentDate.split('/')[1], lastPaymentDate.split('/')[0]),
+                fecha_corte: new Date(cutAfterValue.split('/')[2], cutAfterValue.split('/')[1], cutAfterValue.split('/')[0]),
+                monto_ultimo_pago: parseFloat(lastPaymentAmountValue.replace('$','').replace('.','')),
+                estado_suministro: stateSuplyValue,
+                deuda_vigente: !!amountDue ? parseFloat(amountDue.replace('.', '')) : 0,
             })
         }
     } catch (error) {
@@ -105,12 +111,12 @@ app.post('/servicio-agua', async(req, res) => {
                 numero_cuenta,
                 direccion: address,
                 titular,
-                saldo_anterior,
-                saldo_total,
-                total_a_pagar,
-                fecha_ultimo_pago,
-                monto_ultimo_pago,
-                monto_subsidio
+                saldo_anterior: !!saldo_anterior ? parseFloat(saldo_anterior.replace('$', '').replace('.', '')) : 0,
+                saldo_total: !!saldo_total ? parseFloat(saldo_total.replace('$', '').replace('.', '')): 0,
+                total_a_pagar: !!total_a_pagar ? parseFloat(total_a_pagar.replace('$', '').replace('.', '')): 0,
+                fecha_ultimo_pago: new Date(fecha_ultimo_pago.split('/')[2], fecha_ultimo_pago.split('/')[1], fecha_ultimo_pago.split('/')[0]),
+                monto_ultimo_pago: !!monto_ultimo_pago ? parseFloat(monto_ultimo_pago.replace('$', '').replace('.', '')): 0,
+                monto_subsidio: !!monto_subsidio ? parseFloat(monto_subsidio.replace('$', '').replace('.', '')) : 0,
             })
         }
     } catch (error) {
@@ -132,14 +138,13 @@ app.post('/servicio-gas', async(req, res) => {
 
     try {
         if(req.body.cliente){
-            const browser = await puppeteer.launch({ headless:true })
+            const browser = await puppeteer.launch({ headless:false, timeout: 30000 })
             const page = await browser.newPage()
             page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.169 Safari/537.36')
 
             await page.goto(url)
-            await page.waitForSelector('a#botonPago')
+            await page.waitForSelector('a[data-tab=payment2]')
 
-            await page.click('li#pago > a.label')
             await page.click('a[data-tab=payment2]')
             await page.click('input#NumeroIC')
             await page.keyboard.type(req.body.cliente)
@@ -160,14 +165,15 @@ app.post('/servicio-gas', async(req, res) => {
                 numero_cuenta,
                 direccion,
                 comuna,
-                fecha_ultimo_pago,
-                saldo,
-                fecha_vencimiento,
-                monto,
-                total_a_pagar
+                fecha_ultimo_pago: new Date(fecha_ultimo_pago.split('/')[2], fecha_ultimo_pago.split('/')[1], fecha_ultimo_pago.split('/')[0]),
+                saldo: !!saldo ? parseFloat(saldo.replace('$', '').replace('.', '')) : 0,
+                fecha_vencimiento: new Date(fecha_vencimiento.split('/')[2], fecha_vencimiento.split('/')[1], fecha_vencimiento.split('/')[0]),
+                monto: !!monto ? parseFloat(monto.replace('$', '').replace('.', '')) : 0,
+                total_a_pagar: !!total_a_pagar ? parseFloat(total_a_pagar.replace('$', '').replace('.', '')) : 0,
             })
         }
     } catch (error) {
+        console.log(error)
         return res.json({
             error
         })
